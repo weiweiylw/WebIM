@@ -1,0 +1,184 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app');
+var debug = require('debug')('WebIM:server');
+var http = require('http');
+
+var Message = require('../models/message.js')
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+  //socket.io
+  var io = require('socket.io').listen(server); //引入socket.io模块并绑定到服务器
+
+  //保存在线用户的socket
+  var onlineUsersSocket = {};
+  var onlineUsersName = [];
+
+  //socket部分
+  io.on('connection', function(socket) {
+    console.log("A user has connected.")
+
+
+    //接受客户端登录事件
+    socket.on('login', function(loginInfo) {
+      //将消息输出到控制台
+      console.log("loginInfo: " + loginInfo);
+      socket.name = loginInfo.username;
+      if(!onlineUsersSocket.hasOwnProperty(loginInfo.username)) {
+        onlineUsersSocket[loginInfo.username] = socket;
+        onlineUsersName.push(loginInfo.username);
+        console.log("onlineUsersName: " + onlineUsersName);
+      }
+      io.emit('online_status', {userList: onlineUsersName})
+    });
+
+    socket.on('message', function(sendInfo) {
+      console.log('Message received.');
+      var toSocket = onlineUsersSocket[sendInfo.toUser];
+      console.log(toSocket.name);
+      console.log('sendInfo.message: ' + sendInfo.message);
+      toSocket.emit('message', sendInfo);
+
+      var msg = {
+        toUser: sendInfo.toUser,
+        fromUser: sendInfo.fromUser,
+        message: sendInfo.message,
+        time: sendInfo.time,
+        isNew: sendInfo.isNew
+      }
+
+      var newMessage = new Message(msg);
+
+      console.log(newMessage);
+
+      newMessage.save( function(err) {
+        if(err) {
+          //这里应有错误反馈
+          return;
+        }
+        console.log('Insert message success!');
+      })
+    });
+
+    //监听用户退出
+    socket.on('disconnect', function(){
+        //将退出的用户从在线列表中删除
+        username = socket.name;
+        if(onlineUsersSocket.hasOwnProperty(username)) {
+            //删除
+            delete onlineUsersSocket[username];
+
+            for (var i = 0; i < onlineUsersName.length; i++) {
+              if (onlineUsersName[i] === username) {
+                onlineUsersName.splice(i,1)
+              }
+            }
+
+            for (var i = 0; i < onlineUsersName.length; i++) {
+              console.log(onlineUsersName[i]);
+            }
+
+            //向所有客户端广播用户退出
+            io.emit('online_status', {userList: onlineUsersName});
+            console.log(username + '退出了聊天室');
+          }
+        
+          Message.setHistory(username, function(err) {
+            if (err)
+              console.log('Update error: ' + err);
+          });
+
+        });
+
+    socket.on('fileTrans', function(fileInfo){
+
+      var toSocket = onlineUsersSocket[fileInfo.toUser];
+      toSocket.emit('fileRev', fileInfo);
+
+      //console.log(fileInfo.file);
+    });
+
+  });
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}

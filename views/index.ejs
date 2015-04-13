@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+
+	<!-- 新 Bootstrap 核心 CSS 文件 -->
+	<link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+	<!-- jQuery文件。务必在bootstrap.min.js 之前引入 -->
+	<script src="/javascripts/jquery-1.11.2.min.js"></script>
+	<!-- 最新的 Bootstrap 核心 JavaScript 文件 -->
+	<script src="/bootstrap/js/bootstrap.min.js"></script>
+	
+  </head>
+
+  <body>
+	<div class="container">
+		<div class="row clearfix">
+		<div class="page-header">
+		  <h1>WebIM <small>Index</small></h1>
+		</div>
+		<div class="col-md-12 column">
+			<p><label>昵称：</label><input id="inputNickname" type="text" class="form-control" placeholder="Nickname"></p>
+			<p><label>密码：</label><input id="inputPassword" type="text" class="form-control" placeholder="Password"></p>
+			<div style="text-align:right">
+				<button id="loginBtn" type="button" class="btn btn-primary">登录</button>
+				<button id="regBtn" type="button" class="btn btn-default">注册</button>
+			</div>
+		</div>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+		var loginBtn = document.getElementById('loginBtn'),
+			regBtn = document.getElementById('regBtn');	
+
+		loginBtn.onclick = function() {
+			//alert("Login clicked.");
+
+			var url = '/login';
+			var nickname = $('#inputNickname').val();
+			var	password = $('#inputPassword').val();
+
+			var LoginInfo = {
+				nickname: nickname,
+				password: password,
+			};
+
+			//alert(LoginInfo.nickname);
+			$.post(url, LoginInfo, function(result, status) {
+				if (status == 'success') {
+					alert(result.msg);
+					if (result.logined)
+						window.location.href="/chat?username=" + result.username; 
+				}
+			});
+		}
+
+		regBtn.onclick = function() {
+			window.location.href="/reg"; 
+		}
+
+	</script>
+
+  </body>
+</html>
+
+

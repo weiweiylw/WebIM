@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+
+	<!-- 新 Bootstrap 核心 CSS 文件 -->
+	<link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+	<!-- jQuery文件。务必在bootstrap.min.js 之前引入 -->
+	<script src="/javascripts/jquery-1.11.2.min.js"></script>
+	<!-- 最新的 Bootstrap 核心 JavaScript 文件 -->
+	<script src="/bootstrap/js/bootstrap.min.js"></script>
+
+	<script src="/socket.io/socket.io.js"></script>
+
+  </head>
+  <body>
+	<div class="container">
+		<div class="row clearfix">
+		<div class="page-header">
+		  <h1>WebIM <small>Chat</small></h1>
+		</div>
+		
+		<div class="col-md-2 column">
+			<h3>在线用户</h3>
+
+			<div id="onlineListDiv">
+			</div>
+
+		</div>
+
+		<div class="col-md-10 column">
+
+			<div id="chatWindow">
+				<div class="jumbotron">
+				  <h1>Welcome, <%= username %>!</h1>
+				  <p>请点击左边的在线用户进行对话。</p>
+				</div>
+			</div>
+			
+			<div id="speakWindow">
+			</div>
+
+			<div id="sendFile">
+			</div>
+
+			<div id="revFile">
+			</div>
+		</div>
+
+		</div>
+	</div>
+
+	<script type="text/javascript">
+	
+        var socket = io.connect();//与服务器进行连接
+
+       	//var number = Math.random();
+       	//var loginInfo = {username: 'hello, ' + number};
+       	//alert(<%= username %>);
+       	g_toUser = null;
+       	g_fromUser = <%= username %>;
+       	var loginInfo = {username: <%= username %>};
+
+       	socket.emit('login', loginInfo);
+
+       	socket.on('online_status', function(onlineUserList) {
+
+	       	//alert(onlineUserList.userList);
+	       	//var onlineList=document.getElementById('onlineList');
+
+	       	var onlineListDiv=document.getElementById('onlineListDiv');
+	       	onlineListDiv.innerHTML='';
+
+			var cre_ul=document.createElement("ul");//创建ul
+			cre_ul.id="onlineList";
+			cre_ul.className="list-group"; //设置ul的css
+
+	       	//onlineList.remove();
+	       	//var length=onlineList.childNodes.length;
+	       	/*for (var j=0; j<length; j++)
+	       	{
+	       		onlineList.removeChild(onlineList.childNodes[j]);
+	       		alert("removed a child.");
+	       	}*/
+
+	       	for (var i=0; i < onlineUserList.userList.length; i++) {
+			    //alert(onlineUserList.userList[i]);
+			    var li= document.createElement("li");
+			    li.className='list-group-item';
+			    //li.innerHTML="<a href='' data-toggle='modal' data-target='#myModal'>" + onlineUserList.userList[i] + "</a>";
+			    //li.innerHTML="<a href='' onclick='chat();'>" + onlineUserList.userList[i] + "</a>";
+			    var username = onlineUserList.userList[i];
+			    li.innerHTML = username;
+			    li.setAttribute('onclick','chat(' + username + ');');
+			    li.setAttribute('id', username);
+			    cre_ul.appendChild(li);	
+			}
+			onlineListDiv.appendChild(cre_ul);
+    	});
+		
+		//点击用户名后进入聊天状态
+		function chat(username) {
+			//alert(username);
+			var chatWindow = document.getElementById('chatWindow');
+			chatWindow.innerHTML = "<div class='panel panel-default'><div class='panel-heading'><h3 class='panel-title'>与" + username + "的聊天</h3></div><div class='panel-body'><div id='historyContent'><div style='text-align:center;'><span onclick='getHisMsgs();'><u>点击显示历史消息</u></span></div></div><div id='chatContent'></div></div></div>";
+
+			var speakWindow = document.getElementById('speakWindow');
+			speakWindow.innerHTML = "<p><label>你说:</label><input id='inputMsg' type='text' class='form-control' placeholder='Message'><div style='text-align:right'><button id='sendBtn' type='submit' class='btn btn-default' onclick='sendMessage();'>发送</button></div></p>"
+
+			var sendFile = document.getElementById('sendFile');
+			sendFile.innerHTML = "<u onclick='sendFile();'>点击此处给Ta发送文件</u>"
+
+			//点击用户名后，新消息提示消失
+			var ul = document.getElementById("onlineList");
+			var lis=ul.childNodes; 
+			for(var i=0; i<lis.length; i++) {
+					//alert("Item "+i+": "+lis.item(i).innerHTML); 
+					li_username = lis.item(i).getAttribute('id');
+					if (li_username == username) {
+						lis.item(i).innerHTML = username;
+					}
+				}
+
+			//chatWindow.innerHTML = "<div id='leftChat' class='col-md-10 column'></div><div id='rightChat' class='col-md-2 column'></div>";
+
+			/*
+			//第一次连接
+			if (firstLogin) {
+
+				//chatWindow.innerHTML = "<div class='row clearfix'><div class='col-md-12 column'><h3>与" + username + "的聊天</h3></div></div>";
+
+				chatWindow.innerHTML = "<div class='panel panel-default'><div class='panel-heading'><h3 class='panel-title'>与" + username + "的聊天</h3></div><div class='panel-body' id='chatContent'></div></div>";
+				firstLogin = false;
+			}
+			*/
+			//对方是toUser
+			g_toUser = username;
+			getNewMsgs();
+		}
+
+		function getNewMsgs() {
+			var url ='/getNewMsg';
+			var userInfo = {fromUsername: g_fromUser, toUsername: g_toUser};
+			$.post(url, userInfo, function(result, status) {
+				if (status == 'success') {
+					var chatContent = document.getElementById('chatContent');
+					for (var i = 0; i < result.newMsgs.length; i++) {
+						//alert(result.newMsgs);
+						if (result.newMsgs[i].toUser == g_fromUser) {
+							var div = document.createElement("div");
+							div.setAttribute('style','text-align:left');
+							div.innerHTML = result.newMsgs[i].fromUser + "说：" + result.newMsgs[i].content;
+							chatContent.appendChild(div);
+						}
+						else {
+							var div = document.createElement("div");
+							div.setAttribute('style','text-align:right');
+							div.innerHTML = result.newMsgs[i].fromUser + "说：" + result.newMsgs[i].content;
+							chatContent.appendChild(div);
+						}
+					}
+				}
+			});
+		}
+
+		function getHisMsgs() {
+			var url ='/getHistoryMsg';
+			var userInfo = {fromUsername: g_fromUser, toUsername: g_toUser};
+			$.post(url, userInfo, function(result, status) {
+				if (status == 'success') {
+					var historyContent = document.getElementById('historyContent');
+					historyContent.innerHTML = '';
+
+					for (var i = 0; i < result.hisMsgs.length; i++) {
+						//alert(result.hisMsgs[i].fromUser);
+
+						if (result.hisMsgs[i].toUser == g_fromUser) {
+							var div = document.createElement("div");
+							div.setAttribute('style','text-align:left');
+							div.innerHTML = result.hisMsgs[i].fromUser + "说：" + result.hisMsgs[i].content;
+							historyContent.appendChild(div);		
+						}
+						else {
+							var div = document.createElement("div");
+							div.setAttribute('style','text-align:right');
+							div.innerHTML = result.hisMsgs[i].fromUser + "说：" + result.hisMsgs[i].content;
+							historyContent.appendChild(div);		
+						}
+					}
+						var div = document.createElement("div");
+						div.setAttribute('style','text-align:center');
+						div.innerHTML = "<u onclick='hideHisMsgs();'>点击隐藏历史消息</u>";
+						historyContent.appendChild(div);	
+				}
+			});
+		}
+		function hideHisMsgs() {
+			var historyContent = document.getElementById('historyContent');
+			historyContent.innerHTML = "<div style='text-align:center;'><span onclick='getHisMsgs();'><u>点击显示历史消息</u></span></div>";
+		}
+
+		//生成当前时间
+		Date.prototype.Format = function(formatStr)   
+		{   
+			var str = formatStr;   
+			var Week = ['日','一','二','三','四','五','六'];  
+
+			str=str.replace(/yyyy|YYYY/,this.getFullYear());   
+			str=str.replace(/yy|YY/,(this.getYear() % 100)>9?(this.getYear() % 100).toString():'0' + (this.getYear() % 100));   
+
+			str=str.replace(/MM/,this.getMonth()>9?this.getMonth().toString():'0' + this.getMonth());   
+			str=str.replace(/M/g,this.getMonth());   
+
+			str=str.replace(/w|W/g,Week[this.getDay()]);   
+
+			str=str.replace(/dd|DD/,this.getDate()>9?this.getDate().toString():'0' + this.getDate());   
+			str=str.replace(/d|D/g,this.getDate());   
+
+			str=str.replace(/hh|HH/,this.getHours()>9?this.getHours().toString():'0' + this.getHours());   
+			str=str.replace(/h|H/g,this.getHours());   
+			str=str.replace(/mm/,this.getMinutes()>9?this.getMinutes().toString():'0' + this.getMinutes());   
+			str=str.replace(/m/g,this.getMinutes());   
+
+			str=str.replace(/ss|SS/,this.getSeconds()>9?this.getSeconds().toString():'0' + this.getSeconds());   
+			str=str.replace(/s|S/g,this.getSeconds());   
+
+			return str;   
+		}   
+
+		//发消息
+		function sendMessage() {
+       		alert('Sendbtn Clicked!');
+       		var msg = $('#inputMsg').val();
+       		//alert(msg);
+       		//alert(g_toUser);
+       		//alert(g_fromUser);
+       		var now = new Date(); 
+       		//alert(now);
+			var nowStr = now.Format("yyyy-MM-dd hh:mm:ss"); 
+       		//alert(nowStr);
+
+       		var sendInfo = {
+       			toUser: g_toUser,
+       			fromUser: g_fromUser,
+       			message: msg,
+       			time: nowStr,
+       			isNew: true
+       		}
+       		
+			//var rightChat = document.getElementById('rightChat');
+
+			//rightChat.innerHTML = "<div data-toggle='popover' data-placement='left' title='" + g_fromUser + "说：' data-content='" + msg + "'> </div>";
+
+			var chatContent = document.getElementById('chatContent');
+
+			var div = document.createElement("div");
+			div.setAttribute('style','text-align:right');
+
+			//div.innerHTML = "<p data-toggle='popover' data-placement='left' title='" + g_fromUser + "说：' data-content='" + msg + "' /> <br /><br /><br /><br />";
+
+			div.innerHTML = g_fromUser + "说：" + msg;
+			chatContent.appendChild(div);
+
+			//rightChat.innerHTML = "<div data-toggle='popover' data-placement='left' title='Popover title' data-content='And here's some amazing content. It's very engaging. Right?'> </div>";		
+
+       		//$('[data-toggle="popover"]').popover('show');
+
+       		socket.emit('message', sendInfo);
+       	}
+
+       	//var firstLogin = true;
+       	//接受消息
+       	socket.on('message', function(sendInfo) {
+       		if (g_toUser && sendInfo.fromUser == g_toUser) {
+       			var chatContent = document.getElementById('chatContent');
+				var div = document.createElement("div");
+				div.setAttribute('style','text-align:left');
+				div.innerHTML = sendInfo.fromUser + "说：" + sendInfo.message;
+				chatContent.appendChild(div);
+       		}
+       		else {
+       			var ul = document.getElementById("onlineList");
+				var lis=ul.childNodes; 
+				for(var i=0; i<lis.length; i++) {
+					//alert("Item "+i+": "+lis.item(i).innerHTML); 
+					username = lis.item(i).innerHTML;
+					if (sendInfo.fromUser == username) {
+						lis.item(i).innerHTML = username + "<span class='badge'>新消息!</span>";
+					}
+				}
+       		}
+
+			//chatWindow.innerHTML = "<div id='leftChat' class='col-md-2 column'></div><div id='rightChat' class='col-md-10 column'></div>";
+
+			//仅在第一次连接的时候清空
+			//if (firstLogin == true) {
+			//	firstLogin = false;
+		//		chatWindow.innerHTML = "";
+		//	}
+
+       		//var leftChat = document.getElementById('leftChat');
+       		//leftChat.innerHTML = "<div data-toggle='popover' data-placement='right' title='" + sendInfo.fromUser + "说：' data-content='" + sendInfo.message + "'> </div>";	
+
+			//var div = document.createElement("div");
+			//div.setAttribute('style','text-align:left');
+
+			//div.innerHTML = "<p data-toggle='popover' data-placement='left' title='" + g_fromUser + "说：' data-content='" + msg + "' /> <br /><br /><br /><br />";
+
+			//div.innerHTML = sendInfo.fromUser + "说：" + sendInfo.message;
+			//chatWindow.appendChild(div);
+
+       		//$('[data-toggle="popover"]').popover('show');
+
+       		//alert(sendInfo.message);
+       	});
+
+	function sendFile() {
+		var sendFile = document.getElementById('sendFile');
+		//var div = document.createElement("div");
+		sendFile.innerHTML = "<input type='file' id='files' name='files[]' multiple /><div id='fileList'></div>";
+		//sendFile.appendChild(div);	
+
+		// Check for the various File API support.
+		if (window.File && window.FileReader && window.FileList && window.Blob) {
+		  // Great success! All the File APIs are supported.
+		} else {
+			alert('The File APIs are not fully supported in this browser.');
+		}
+
+		function handleFileSelect(evt) {
+		    var files = evt.target.files; // FileList object
+
+		    // files is a FileList of File objects. List some properties.
+		    var f = files[0];
+		    var reader = new FileReader();
+		    reader.readAsBinaryString(f);
+		    //alert(reader.result);
+
+			// 绑定读取操作完成的事件  
+			reader.onloadend = function (e) {	
+		    	// 取得读取结果并输出  
+	    		//alert('File read success!');
+
+		    		fileInfo = {
+		    			toUser: g_toUser,
+		    			fromUser: g_fromUser,
+		    			fileName: escape(f.name),
+		    			file: reader.result
+		    		}		    		
+
+	    		var fileList = document.getElementById('fileList');
+	    		fileList.innerHTML = '<ul><li><strong>' + escape(f.name) + '</strong> (' + f.type + ') - ' + f.size + ' bytes, last modified: ' + f.lastModifiedDate + "</li><button type='submit' class='btn btn-default' onclick='onSendFile(fileInfo);'>Send</button><ul>";
+	    	}
+
+	    }
+    	document.getElementById('files').addEventListener('change', handleFileSelect, false);		
+	}
+
+	function onSendFile(fileInfo) {
+	    socket.emit('fileTrans', fileInfo);
+	}
+	
+
+	socket.on('fileRev', function(fileInfo) {
+		var RevFileDiv = document.getElementById('revFile');
+		var div = document.createElement('div');
+		div.innerHTML = "您收到来自 " + fileInfo.fromUser + " 发来的文件 " + fileInfo.fileName + "." + "<p><button type='submit' class='btn btn-default' onclick=''>接收</button></p>";
+		RevFileDiv.appendChild(div);
+		//alert(fileInfo.file);
+    });	
+
+	</script>
+
+  </body>
+</html>

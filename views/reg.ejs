@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+
+	<!-- 新 Bootstrap 核心 CSS 文件 -->
+	<link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+	<!-- jQuery文件。务必在bootstrap.min.js 之前引入 -->
+	<script src="/javascripts/jquery-1.11.2.min.js"></script>
+	<!-- 最新的 Bootstrap 核心 JavaScript 文件 -->
+	<script src="/bootstrap/js/bootstrap.min.js"></script>	
+
+  </head>
+  <body>
+	<div class="container">
+		<div class="row clearfix">
+		<div class="page-header">
+		  <h1>WebIM <small>Register</small></h1>
+		</div>
+		<div class="col-md-12 column">
+		
+			<p><label>昵称:</label><input id="inputNickname" type="text" class="form-control" placeholder="Nickname"></p>
+			<p><label>密码：</label><input id="inputPassword" type="text" class="form-control" placeholder="Password"></p>
+			<p><label>确认密码：</label><input id="confirmPassword" type="text" class="form-control" placeholder="Confirm password"></p>
+			<div style="text-align:right">
+				<button id="confirmBtn" type="submit" class="btn btn-default">确认</button>
+			</div>
+		
+		</div>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+		var confirmBtn = document.getElementById('confirmBtn');
+		
+		confirmBtn.onclick = function() {
+			var url = '/reg';
+
+			var nickname = $('#inputNickname').val();
+			var	password = $('#inputPassword').val();
+			var	confirmPassword = $('#confirmPassword').val();
+			var regInfo = {
+				nickname: nickname,
+				password: password,
+				confirmPassword: confirmPassword
+			};
+
+			$.post(url, regInfo, function(result, status) {
+				if (status == 'success') {
+					alert(result.msg);
+					if (result.reged)
+						window.location.href="/"; 
+				}
+			});
+		}
+	</script>
+
+  </body>
+</html>
